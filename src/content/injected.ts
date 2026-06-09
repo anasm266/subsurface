@@ -84,6 +84,19 @@ function patchXHR(): void {
       if (!shouldInspectResponse(url, contentType)) return;
 
       const responseType = this.responseType;
+      if (responseType === 'json') {
+        try {
+          const text =
+            typeof this.response === 'string'
+              ? this.response
+              : JSON.stringify(this.response);
+          postIfSubtitle(url, text);
+        } catch {
+          // unreadable json response
+        }
+        return;
+      }
+
       if (responseType && responseType !== 'text' && responseType !== 'document') return;
 
       const text =

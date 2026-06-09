@@ -3,6 +3,18 @@ import type { DetectorResult, SubtitleFormat } from '../types';
 const EXTENSION_PATTERN =
   /\.(vtt|srt|ttml|ttml2|dfxp|ass|ssa|sbv|sub|xml|json3)([\?#]|$)/i;
 
+export function isJson3Content(raw: string): boolean {
+  const trimmed = raw.replace(/^\uFEFF/, '').trim();
+  if (!trimmed.startsWith('{') || !/"events"\s*:\s*\[/.test(trimmed)) return false;
+
+  try {
+    const parsed = JSON.parse(trimmed) as { events?: unknown[] };
+    return Array.isArray(parsed.events);
+  } catch {
+    return false;
+  }
+}
+
 const PLATFORM_PATTERNS: Array<{ pattern: RegExp; format: SubtitleFormat }> = [
   { pattern: /\/api\/timedtext/i, format: 'vtt' },
   { pattern: /\/timedtext/i, format: 'vtt' },
@@ -36,6 +48,8 @@ function detectFormatFromUrl(url: string): SubtitleFormat | null {
     const parsed = new URL(url, 'https://example.com');
     const fmt = parsed.searchParams.get('fmt');
     if (fmt === 'json3') return 'json3';
+    if (fmt === 'srv3' || fmt === 'srv1' || fmt === 'srv2') return 'ttml';
+    if (fmt === 'vtt' || fmt === 'vtt3') return 'vtt';
   } catch {
     // ignore invalid urls
   }
@@ -106,8 +120,10 @@ export function isSubtitleUrl(url: string): boolean {
 export function looksLikeSubtitleContent(raw: string): boolean {
   const sample = raw.replace(/^\uFEFF/, '').trim().slice(0, 8192);
   if (sample.length < 8) return false;
-  if (/^\s*\{"events"\s*:\s*\[/.test(sample)) return true;
+  if (isJson3Content(sample)) return true;
   if (sample.startsWith('WEBVTT')) return true;
+  if (/<timedtext\b/i.test(sample) && /<p\b[^>]*\bt=["']?\d+/i.test(sample)) return true;
+  if (/<transcript\b/i.test(sample) && /<text\b[^>]*\bstart=/i.test(sample)) return true;
   if (/<tt\b/i.test(sample) && /<p\b[^>]*\bbegin=/i.test(sample)) return true;
   if (/<tt\b[\s\S]*xmlns[^>]*ttml/i.test(sample)) return true;
   if (/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->/m.test(sample)) return true;
@@ -186,11 +202,25 @@ export async function hashCaptureId(url: string, format: SubtitleFormat): Promis
 
 export function inferFormatFromContent(raw: string): SubtitleFormat {
   const trimmed = raw.replace(/^\uFEFF/, '').trim();
-  if (/^\s*\{"events"\s*:\s*\[/.test(trimmed)) return 'json3';
+  if (isJson3Content(trimmed)) return 'json3';
   if (trimmed.startsWith('WEBVTT')) return 'vtt';
+  if (/<timedtext\b/i.test(trimmed) || /<transcript\b/i.test(trimmed)) return 'ttml';
   if (/<tt\b/i.test(trimmed) || /<p\b[^>]*begin=/i.test(trimmed)) return 'ttml';
   if (/\d{2}:\d{2}:\d{2},\d{3}\s*-->/m.test(trimmed)) return 'srt';
   return 'vtt';
+}
+
+export function resolveCaptureFormat(url: string, raw: string): SubtitleFormat {
+  const contentFormat = inferFormatFromContent(raw);
+  const urlFormat = detectFormatFromUrl(url);
+
+  if (contentFormat === 'json3') return 'json3';
+  if (contentFormat === 'ttml' && (/<timedtext\b/i.test(raw) || /<transcript\b/i.test(raw))) {
+    return 'ttml';
+  }
+  if (contentFormat === 'vtt' && raw.trim().startsWith('WEBVTT')) return 'vtt';
+
+  return urlFormat ?? contentFormat;
 }
 
 export function isSegmentedSubtitleUrl(url: string): boolean {

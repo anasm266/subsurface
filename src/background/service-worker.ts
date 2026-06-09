@@ -2,7 +2,7 @@ import { parseAndClean } from '../lib/cleaner';
 import {
   detectSubtitleUrl,
   hashCaptureId,
-  inferFormatFromContent,
+  resolveCaptureFormat,
 } from '../lib/detector';
 import { detectPlatform } from '../lib/platforms';
 import { maybeAccumulateSegment } from '../lib/segment-merger';
@@ -49,11 +49,7 @@ async function processCapture(
   payload: Extract<RuntimeMessage, { type: 'SUBTITLE_CAPTURED' }>,
 ): Promise<void> {
   const detection = detectSubtitleUrl(payload.url);
-  const contentFormat = inferFormatFromContent(payload.rawContent);
-  const format =
-    contentFormat === 'json3'
-      ? 'json3'
-      : (detection.format ?? contentFormat);
+  const format = resolveCaptureFormat(payload.url, payload.rawContent);
 
   if (!format) return;
 

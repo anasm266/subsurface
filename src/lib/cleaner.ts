@@ -1,8 +1,10 @@
 import type { CueBlock, SubtitleFormat } from '../types';
+import { isJson3Content } from './detector';
 import { parseJson3 } from './parsers/json3';
 import { parseSrt } from './parsers/srt';
 import { parseTtml } from './parsers/ttml';
 import { parseVtt } from './parsers/vtt';
+import { isYoutubeSrv3Content, parseYoutubeSrv3 } from './parsers/youtube-srv3';
 
 const SOUND_ANNOTATION =
   /^\s*(\[.*?\]|\(.*?\)|♪.*?♪|♪.*|.*♪)\s*$/i;
@@ -95,19 +97,25 @@ export function cleanCues(cues: CueBlock[]): string {
 export function parseAndClean(raw: string, format: SubtitleFormat): string {
   let cues: CueBlock[] = [];
 
-  switch (format) {
-    case 'vtt':
-      cues = parseVtt(raw);
-      break;
-    case 'srt':
-      cues = parseSrt(raw);
-      break;
-    case 'ttml':
-      cues = parseTtml(raw);
-      break;
-    case 'json3':
-      cues = parseJson3(raw);
-      break;
+  if (isJson3Content(raw)) {
+    cues = parseJson3(raw);
+  } else if (isYoutubeSrv3Content(raw)) {
+    cues = parseYoutubeSrv3(raw);
+  } else {
+    switch (format) {
+      case 'vtt':
+        cues = parseVtt(raw);
+        break;
+      case 'srt':
+        cues = parseSrt(raw);
+        break;
+      case 'ttml':
+        cues = parseTtml(raw);
+        break;
+      case 'json3':
+        cues = parseJson3(raw);
+        break;
+    }
   }
 
   if (cues.length === 0) {
