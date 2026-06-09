@@ -13,14 +13,38 @@ const PLATFORM_MAP: Record<string, string> = {
   'brightcove.com': 'Brightcove',
   'mediaspace.kaltura.com': 'Kaltura',
   'netflix.com': 'Netflix',
+  'primevideo.com': 'Amazon Prime',
+  'amazon.com': 'Amazon Prime',
+  'hulu.com': 'Hulu',
+  'disneyplus.com': 'Disney+',
+  'max.com': 'Max',
+  'hbomax.com': 'Max',
+  'peacocktv.com': 'Peacock',
+  'paramountplus.com': 'Paramount+',
+  'tv.apple.com': 'Apple TV+',
 };
 
 const CANVAS_PATTERN = /(^|\.)canvas\.[\w.-]+\.edu$/i;
 const BLACKBOARD_PATTERN = /(^|\.)blackboard\.com$/i;
 
+function detectPlatformFromCdn(hostname: string): string | null {
+  if (/dssott\.com|starott\.com/i.test(hostname)) return 'Disney+';
+  if (/warnermediacdn\.com|h264\.io/i.test(hostname)) return 'Max';
+  if (/media\.max\.com/i.test(hostname)) return 'Max';
+  if (/huluim\.com/i.test(hostname)) return 'Hulu';
+  if (/pv-cdn\.net|aiv-prod-timedtext/i.test(hostname)) return 'Amazon Prime';
+  if (/cbsaavideo\.com/i.test(hostname)) return 'Paramount+';
+  if (/amt\.tv\.apple\.com/i.test(hostname)) return 'Apple TV+';
+  if (/nflxvideo\.net/i.test(hostname)) return 'Netflix';
+  return null;
+}
+
 export function detectPlatform(url: string): string {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, '');
+
+    const cdnPlatform = detectPlatformFromCdn(hostname);
+    if (cdnPlatform) return cdnPlatform;
 
     if (CANVAS_PATTERN.test(hostname)) {
       return 'Canvas LMS';
