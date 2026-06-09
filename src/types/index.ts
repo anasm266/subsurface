@@ -1,4 +1,4 @@
-export type SubtitleFormat = 'vtt' | 'srt' | 'ttml';
+export type SubtitleFormat = 'vtt' | 'srt' | 'ttml' | 'json3';
 
 export interface CueBlock {
   start: number;

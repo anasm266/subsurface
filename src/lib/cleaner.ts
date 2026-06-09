@@ -1,4 +1,5 @@
 import type { CueBlock, SubtitleFormat } from '../types';
+import { parseJson3 } from './parsers/json3';
 import { parseSrt } from './parsers/srt';
 import { parseTtml } from './parsers/ttml';
 import { parseVtt } from './parsers/vtt';
@@ -103,6 +104,9 @@ export function parseAndClean(raw: string, format: SubtitleFormat): string {
       break;
     case 'ttml':
       cues = parseTtml(raw);
+      break;
+    case 'json3':
+      cues = parseJson3(raw);
       break;
   }
 
