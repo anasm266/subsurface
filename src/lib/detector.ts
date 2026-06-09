@@ -80,9 +80,17 @@ export function isSubtitleUrl(url: string): boolean {
 export function normalizeCaptureUrl(url: string): string {
   try {
     const parsed = new URL(url);
+    const lang =
+      parsed.searchParams.get('lang') ??
+      parsed.searchParams.get('language') ??
+      parsed.searchParams.get('tlang') ??
+      parsed.searchParams.get('hl') ??
+      '';
+
     parsed.search = '';
     parsed.hash = '';
-    return parsed.toString();
+    const base = parsed.toString();
+    return lang ? `${base}?lang=${lang}` : base;
   } catch {
     return url.split('?')[0].split('#')[0];
   }

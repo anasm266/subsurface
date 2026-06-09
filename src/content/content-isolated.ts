@@ -5,7 +5,6 @@ import {
   type RuntimeMessage,
 } from '../types';
 
-const seenUrls = new Set<string>();
 const MAX_BODY_CHARS = 600_000;
 
 function resolvePageTitle(): string {
@@ -25,10 +24,6 @@ function sendPageTitle(): void {
 function sendCapture(url: string, rawContent: string, pageTitle: string): void {
   if (!rawContent.trim()) return;
 
-  const dedupeKey = url.split('?')[0];
-  if (seenUrls.has(dedupeKey)) return;
-  seenUrls.add(dedupeKey);
-
   const message: RuntimeMessage = {
     type: 'SUBTITLE_CAPTURED',
     url,
@@ -38,7 +33,7 @@ function sendCapture(url: string, rawContent: string, pageTitle: string): void {
   };
 
   chrome.runtime.sendMessage(message).catch(() => {
-    seenUrls.delete(dedupeKey);
+    // service worker may be asleep briefly
   });
 }
 
