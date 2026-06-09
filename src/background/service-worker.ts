@@ -5,6 +5,7 @@ import {
   inferFormatFromContent,
 } from '../lib/detector';
 import { detectPlatform } from '../lib/platforms';
+import { maybeAccumulateSegment } from '../lib/segment-merger';
 import {
   addCapture,
   clearCaptures,
@@ -32,13 +33,27 @@ function broadcastUpdate(message: SubtitleUpdatedPayload): void {
   });
 }
 
+async function storeCapture(tabId: number, capture: CapturedSubtitle): Promise<void> {
+  const { captures } = await addCapture(tabId, capture);
+  await updateBadge(tabId, captures.length);
+
+  broadcastUpdate({
+    type: 'SUBTITLE_UPDATED',
+    tabId,
+    capture: captures.find((item) => item.id === capture.id) ?? capture,
+  });
+}
+
 async function processCapture(
   tabId: number,
   payload: Extract<RuntimeMessage, { type: 'SUBTITLE_CAPTURED' }>,
 ): Promise<void> {
   const detection = detectSubtitleUrl(payload.url);
+  const contentFormat = inferFormatFromContent(payload.rawContent);
   const format =
-    detection.format ?? inferFormatFromContent(payload.rawContent);
+    contentFormat === 'json3'
+      ? 'json3'
+      : (detection.format ?? contentFormat);
 
   if (!format) return;
 
@@ -64,18 +79,13 @@ async function processCapture(
     capturedAt: Date.now(),
   };
 
-  const { added, captures } = await addCapture(tabId, capture);
-  await updateBadge(tabId, captures.length);
-
-  broadcastUpdate({
-    type: 'SUBTITLE_UPDATED',
-    tabId,
-    capture: captures.find((item) => item.id === id) ?? capture,
+  const buffered = maybeAccumulateSegment(capture, async (merged) => {
+    await storeCapture(tabId, merged);
   });
 
-  if (added) {
-    // badge already updated above
-  }
+  if (buffered) return;
+
+  await storeCapture(tabId, capture);
 }
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
