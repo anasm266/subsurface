@@ -29,12 +29,18 @@ function readResponseBody(response: Response, url: string): void {
   }
 }
 
+function resolveRequestUrl(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.toString();
+  return input.url;
+}
+
 function patchFetch(): void {
   const originalFetch = window.fetch.bind(window);
 
   window.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
     const response = await originalFetch(...args);
-    const requestUrl = typeof args[0] === 'string' ? args[0] : args[0].url;
+    const requestUrl = resolveRequestUrl(args[0]);
 
     if (isSubtitleUrl(requestUrl)) {
       readResponseBody(response, requestUrl);
@@ -51,11 +57,13 @@ function patchXHR(): void {
   XMLHttpRequest.prototype.open = function open(
     method: string,
     url: string | URL,
-    ...rest: [boolean?, string?, string?]
+    async?: boolean,
+    username?: string | null,
+    password?: string | null,
   ) {
     const resolvedUrl = typeof url === 'string' ? url : url.toString();
     (this as XMLHttpRequest & { _subsurfaceUrl?: string })._subsurfaceUrl = resolvedUrl;
-    return originalOpen.call(this, method, url, ...rest);
+    return originalOpen.call(this, method, url, async ?? true, username, password);
   };
 
   XMLHttpRequest.prototype.send = function send(body?: Document | XMLHttpRequestBodyInit | null) {
@@ -64,7 +72,7 @@ function patchXHR(): void {
       if (!url || !isSubtitleUrl(url)) return;
 
       const responseType = this.responseType;
-      if (responseType && responseType !== '' && responseType !== 'text') return;
+      if (responseType && responseType !== 'text') return;
 
       const text =
         typeof this.responseText === 'string'

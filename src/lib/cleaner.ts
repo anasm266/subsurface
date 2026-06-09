@@ -1,4 +1,4 @@
-import type { CueBlock, SubtitleFormat } from '../../types';
+import type { CueBlock, SubtitleFormat } from '../types';
 import { parseSrt } from './parsers/srt';
 import { parseTtml } from './parsers/ttml';
 import { parseVtt } from './parsers/vtt';
