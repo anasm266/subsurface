@@ -12,6 +12,7 @@ const PLATFORM_MAP: Record<string, string> = {
   'kaltura.com': 'Kaltura',
   'brightcove.com': 'Brightcove',
   'mediaspace.kaltura.com': 'Kaltura',
+  'netflix.com': 'Netflix',
 };
 
 const CANVAS_PATTERN = /(^|\.)canvas\.[\w.-]+\.edu$/i;

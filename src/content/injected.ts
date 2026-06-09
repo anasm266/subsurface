@@ -1,4 +1,7 @@
-import { isSubtitleUrl } from '../lib/detector';
+import {
+  looksLikeSubtitleContent,
+  shouldInspectResponse,
+} from '../lib/detector';
 import { SUBSURFACE_MESSAGE_SOURCE, type InjectedCaptureMessage } from '../types';
 
 const MAX_BODY_CHARS = 600_000;
@@ -15,12 +18,20 @@ function postCapture(url: string, rawContent: string): void {
   window.postMessage(message, '*');
 }
 
+function postIfSubtitle(url: string, rawContent: string): void {
+  if (!looksLikeSubtitleContent(rawContent)) return;
+  postCapture(url, rawContent);
+}
+
 function readResponseBody(response: Response, url: string): void {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!shouldInspectResponse(url, contentType)) return;
+
   try {
     const cloned = response.clone();
     void cloned
       .text()
-      .then((text) => postCapture(url, text))
+      .then((text) => postIfSubtitle(url, text))
       .catch(() => {
         // opaque or unreadable response
       });
@@ -42,9 +53,7 @@ function patchFetch(): void {
     const response = await originalFetch(...args);
     const requestUrl = resolveRequestUrl(args[0]);
 
-    if (isSubtitleUrl(requestUrl)) {
-      readResponseBody(response, requestUrl);
-    }
+    readResponseBody(response, requestUrl);
 
     return response;
   };
@@ -69,10 +78,13 @@ function patchXHR(): void {
   XMLHttpRequest.prototype.send = function send(body?: Document | XMLHttpRequestBodyInit | null) {
     this.addEventListener('load', () => {
       const url = (this as XMLHttpRequest & { _subsurfaceUrl?: string })._subsurfaceUrl;
-      if (!url || !isSubtitleUrl(url)) return;
+      if (!url) return;
+
+      const contentType = this.getResponseHeader('content-type') ?? '';
+      if (!shouldInspectResponse(url, contentType)) return;
 
       const responseType = this.responseType;
-      if (responseType && responseType !== 'text') return;
+      if (responseType && responseType !== 'text' && responseType !== 'document') return;
 
       const text =
         typeof this.responseText === 'string'
@@ -81,7 +93,7 @@ function patchXHR(): void {
             ? this.response
             : '';
 
-      postCapture(url, text);
+      postIfSubtitle(url, text);
     });
 
     return originalSend.call(this, body);

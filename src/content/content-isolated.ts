@@ -1,4 +1,4 @@
-import { isSubtitleUrl } from '../lib/detector';
+import { looksLikeSubtitleContent, shouldInspectResponse } from '../lib/detector';
 import {
   SUBSURFACE_MESSAGE_SOURCE,
   type InjectedCaptureMessage,
@@ -22,7 +22,7 @@ function sendPageTitle(): void {
 }
 
 function sendCapture(url: string, rawContent: string, pageTitle: string): void {
-  if (!rawContent.trim()) return;
+  if (!rawContent.trim() || !looksLikeSubtitleContent(rawContent)) return;
 
   const message: RuntimeMessage = {
     type: 'SUBTITLE_CAPTURED',
@@ -38,7 +38,7 @@ function sendCapture(url: string, rawContent: string, pageTitle: string): void {
 }
 
 async function fetchTrackUrl(url: string): Promise<void> {
-  if (!isSubtitleUrl(url)) return;
+  if (!shouldInspectResponse(url)) return;
 
   try {
     const response = await fetch(url);

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" ttp:tickRate="10000000">
+  <body>
+    <div>
+      <p begin="10000000t" end="25000000t"><span>Are you looking for something?</span></p>
+      <p begin="30000000t" end="45000000t"><span>Not really.</span></p>
+    </div>
+  </body>
+</tt>

@@ -11,6 +11,8 @@ const PLATFORM_PATTERNS: Array<{ pattern: RegExp; format: SubtitleFormat }> = [
   { pattern: /\/closed-captions/i, format: 'vtt' },
   { pattern: /wistia\.(com|net).*\.(vtt|srt|ttml)/i, format: 'vtt' },
   { pattern: /panopto\.com.*caption/i, format: 'vtt' },
+  { pattern: /nflxvideo\.net/i, format: 'ttml' },
+  { pattern: /timedtexttracks/i, format: 'ttml' },
 ];
 
 const DATA_URI_PATTERN = /^data:(text\/(vtt|srt|plain)|application\/ttml)/i;
@@ -77,6 +79,29 @@ export function isSubtitleUrl(url: string): boolean {
   return detectSubtitleUrl(url).isSubtitle;
 }
 
+export function looksLikeSubtitleContent(raw: string): boolean {
+  const sample = raw.replace(/^\uFEFF/, '').trim().slice(0, 8192);
+  if (sample.length < 8) return false;
+  if (sample.startsWith('WEBVTT')) return true;
+  if (/<tt\b/i.test(sample) && /<p\b[^>]*\bbegin=/i.test(sample)) return true;
+  if (/<tt\b[\s\S]*xmlns[^>]*ttml/i.test(sample)) return true;
+  if (/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->/m.test(sample)) return true;
+  return false;
+}
+
+export function shouldInspectResponse(url: string, contentType = ''): boolean {
+  if (isSubtitleUrl(url)) return true;
+
+  const type = contentType.toLowerCase();
+  if (/(xml|vtt|ttml|dfxp|timedtext)/i.test(type)) return true;
+
+  if (/nflxvideo\.net/i.test(url)) {
+    return !/(video|mp4|mpeg|octet-stream|dash|mp2t|webm)/i.test(type);
+  }
+
+  return false;
+}
+
 export function normalizeCaptureUrl(url: string): string {
   try {
     const parsed = new URL(url);
@@ -86,11 +111,16 @@ export function normalizeCaptureUrl(url: string): string {
       parsed.searchParams.get('tlang') ??
       parsed.searchParams.get('hl') ??
       '';
+    const trackVersion = parsed.searchParams.get('v') ?? '';
 
     parsed.search = '';
     parsed.hash = '';
     const base = parsed.toString();
-    return lang ? `${base}?lang=${lang}` : base;
+    const params = new URLSearchParams();
+    if (lang) params.set('lang', lang);
+    if (trackVersion) params.set('v', trackVersion);
+    const query = params.toString();
+    return query ? `${base}?${query}` : base;
   } catch {
     return url.split('?')[0].split('#')[0];
   }
